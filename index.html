@@ -1,348 +1,457 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { Heart, Send, User, MessageCircle, Star, BarChart2, CheckCircle2, ClipboardList } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refleksi Digital Kelas 5 - Ibu Naswa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600&display=swap');
 
-// Konfigurasi Firebase
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'refleksi-kelas5';
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #fff5f8;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
 
-// Asset Images dari User
-const ASSETS = {
-  bgHero: "#D - ASSET (24).jpg",
-  pencilBlue: "ki.jpg",
-  pencilPink: "#D - ASSET (13).jpg"
-};
+        .header-font {
+            font-family: 'Fredoka One', cursive;
+        }
 
-const MOODS = [
-  { id: 'happy', emoji: '😊', label: 'Senang', color: 'bg-pink-100 text-pink-600 border-pink-300' },
-  { id: 'neutral', emoji: '😐', label: 'Biasa', color: 'bg-teal-100 text-teal-600 border-teal-300' },
-  { id: 'sad', emoji: '😢', label: 'Sedih', color: 'bg-blue-100 text-blue-600 border-blue-300' },
-  { id: 'confused', emoji: '😕', label: 'Bingung', color: 'bg-yellow-100 text-yellow-600 border-yellow-300' },
-  { id: 'tired', emoji: '😫', label: 'Capek', color: 'bg-purple-100 text-purple-600 border-purple-300' }
-];
+        /* Navigasi Halaman */
+        .page {
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+        .active-page {
+            display: block;
+        }
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [view, setView] = useState('home'); 
-  const [submissions, setSubmissions] = useState([]);
-  const [loading, setLoading] = useState(false);
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-  const [formData, setFormData] = useState({
-    nama: '',
-    mood: '',
-    paham: '',
-    tidakPaham: '',
-    saran: '',
-    pesanPositif: ''
-  });
+        /* Landing Page Specific */
+        .welcome-icon {
+            background-color: #fce7f3;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .heart-badge {
+            position: absolute;
+            top: 5px;
+            right: 15px;
+            color: #ec4899;
+            font-size: 1.5rem;
+        }
 
-  useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsubscribe();
-  }, []);
+        /* Form Styling */
+        .emoji-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 2px solid #f3f4f6;
+            background: white;
+        }
+        .emoji-card:hover {
+            transform: translateY(-5px);
+            border-color: #ec4899;
+        }
+        .emoji-card.selected {
+            border-color: #ec4899;
+            background-color: #fdf2f8;
+            box-shadow: 0 10px 15px -3px rgba(236, 72, 153, 0.1);
+        }
 
-  useEffect(() => {
-    if (!user) return;
-    const q = collection(db, 'artifacts', appId, 'public', 'data', 'refleksi');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const sorted = data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setSubmissions(sorted);
-    }, (err) => console.error(err));
-    return () => unsubscribe();
-  }, [user]);
+        .input-custom {
+            border: 2px solid #fce7f3;
+            border-radius: 15px;
+            transition: all 0.3s;
+        }
+        .input-custom:focus {
+            border-color: #ec4899;
+            box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+            outline: none;
+        }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user || !formData.nama || !formData.mood) return;
+        .glass-morphism {
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
 
-    setLoading(true);
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'refleksi'), {
-        ...formData,
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-      setView('thanks');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        /* Admin Trigger (Rahasia) */
+        .admin-trigger {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            opacity: 0.05;
+            cursor: pointer;
+            z-index: 100;
+        }
+        .admin-trigger:hover { opacity: 0.3; }
 
-  const renderHome = () => (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      {/* Hero Section dengan Gambar Background */}
-      <div className="relative w-full max-w-4xl h-[400px] md:h-[500px] overflow-hidden rounded-3xl shadow-2xl mx-4 group">
-        <img 
-          src={ASSETS.bgHero} 
-          alt="School Background" 
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col items-center justify-end pb-12 px-6 text-center">
-          <h1 className="text-4xl md:text-5xl font-black text-white mb-2 drop-shadow-lg tracking-tight">
-            SURAT PERJALANAN <br/>BELAJARKU
-          </h1>
-          <p className="text-pink-200 text-lg font-medium drop-shadow-md">Yuk, ceritakan harimu kepada Ibu Naswa!</p>
+        .blob {
+            position: fixed;
+            z-index: -1;
+            filter: blur(50px);
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- Ornamen Latar Belakang -->
+    <div class="blob bg-pink-200 w-64 h-64 -top-20 -left-20 rounded-full"></div>
+    <div class="blob bg-rose-100 w-80 h-80 -bottom-20 -right-20 rounded-full"></div>
+
+    <div id="app" class="max-w-4xl mx-auto">
+        
+        <!-- HALAMAN 1: LANDING PAGE -->
+        <div id="page-welcome" class="page active-page flex flex-col items-center justify-center pt-12 text-center">
+            <div class="welcome-icon mb-8 shadow-inner">
+                <i class="fas fa-book-open text-6xl text-pink-500"></i>
+                <div class="heart-badge"><i class="fas fa-heart"></i></div>
+            </div>
+            
+            <h1 class="header-font text-4xl md:text-5xl text-pink-600 mb-4 px-4 leading-tight">
+                Surat Perjalanan Belajarku
+            </h1>
+            
+            <p class="text-gray-600 text-lg md:text-xl mb-12 px-6 max-w-md mx-auto">
+                Halo anak-anak hebat! Yuk, ceritakan perasaan dan apa yang kalian pelajari hari ini kepada Ibu Naswa.
+            </p>
+
+            <button onclick="showPage('page-form')" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-5 px-12 rounded-2xl text-xl shadow-lg transform transition active:scale-95 mb-10">
+                Mulai Refleksi <i class="fas fa-magic ml-2"></i>
+            </button>
+
+            <!-- Tautan Cepat untuk Guru -->
+            <div class="flex flex-col items-center gap-2">
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Khusus Guru</p>
+                <button onclick="loginGuru()" class="bg-white text-pink-400 border border-pink-100 hover:bg-pink-50 font-bold py-3 px-6 rounded-xl transition flex items-center gap-2 shadow-sm">
+                    <i class="fas fa-lock"></i> Masuk Mode Guru
+                </button>
+            </div>
         </div>
-      </div>
-      
-      <div className="mt-8 space-y-4 w-full max-w-xs px-4 pb-12">
-        <button 
-          onClick={() => setView('form')}
-          className="w-full py-4 bg-[#4CAF50] hover:bg-[#45a049] text-white rounded-2xl font-bold text-xl shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3 border-b-4 border-green-700"
-        >
-          MULAI <Send size={24} />
-        </button>
-        <button 
-          onClick={() => setView('admin')}
-          className="w-full py-2 text-gray-400 font-medium flex items-center justify-center gap-2 hover:text-pink-500 transition-colors"
-        >
-          <BarChart2 size={18} /> Dashboard Guru
-        </button>
-      </div>
+
+        <!-- HALAMAN 2: FORM SISWA -->
+        <div id="page-form" class="page space-y-8 pb-20 max-w-2xl mx-auto">
+            <div class="flex items-center mb-6">
+                <button onclick="showPage('page-welcome')" class="text-pink-500 font-bold flex items-center">
+                    <i class="fas fa-chevron-left mr-2"></i> Kembali
+                </button>
+                <h2 class="header-font text-2xl text-pink-600 flex-grow text-center">Isi Refleksi</h2>
+            </div>
+
+            <!-- Input Nama -->
+            <div class="glass-morphism p-6 md:p-8">
+                <div class="flex items-center gap-2 mb-4 text-gray-700 font-bold text-lg">
+                    <i class="fas fa-id-card text-pink-500"></i>
+                    <label>Siapa namamu?</label>
+                </div>
+                <input type="text" id="input-nama" placeholder="Ketik nama lengkapmu..." class="w-full p-4 input-custom text-lg">
+            </div>
+
+            <!-- Pilih Perasaan -->
+            <div class="glass-morphism p-6 md:p-8">
+                <div class="mb-6 text-gray-700 font-bold text-lg text-center">
+                    <label>Bagaimana perasaanmu hari ini?</label>
+                </div>
+                <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
+                    <div onclick="selectEmoji('senang', this)" class="emoji-card p-4 rounded-2xl text-center">
+                        <div class="text-4xl mb-2">😊</div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Senang</p>
+                    </div>
+                    <div onclick="selectEmoji('biasa', this)" class="emoji-card p-4 rounded-2xl text-center">
+                        <div class="text-4xl mb-2">😐</div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Biasa</p>
+                    </div>
+                    <div onclick="selectEmoji('sedih', this)" class="emoji-card p-4 rounded-2xl text-center">
+                        <div class="text-4xl mb-2">😢</div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Sedih</p>
+                    </div>
+                    <div onclick="selectEmoji('bingung', this)" class="emoji-card p-4 rounded-2xl text-center">
+                        <div class="text-4xl mb-2">😰</div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Bingung</p>
+                    </div>
+                    <div onclick="selectEmoji('capek', this)" class="emoji-card p-4 rounded-2xl text-center">
+                        <div class="text-4xl mb-2">😫</div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Capek</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail Jawaban -->
+            <div class="glass-morphism p-6 md:p-8 space-y-6">
+                <div>
+                    <label class="block text-gray-700 font-bold mb-3">Apa yang aku pahami hari ini?</label>
+                    <textarea id="input-paham" rows="3" placeholder="Contoh: Saya paham tentang perkalian pecahan..." class="w-full p-4 input-custom"></textarea>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-bold mb-3">Apa yang belum aku pahami?</label>
+                    <textarea id="input-belum-paham" rows="3" placeholder="Bagian mana yang sulit? Tulis di sini ya..." class="w-full p-4 input-custom"></textarea>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-bold mb-3">Saran untuk Ibu Naswa:</label>
+                    <textarea id="input-saran" rows="3" placeholder="Ingin belajar sambil main apa besok?..." class="w-full p-4 input-custom"></textarea>
+                </div>
+            </div>
+
+            <!-- Kalimat Positif -->
+            <div class="glass-morphism p-6 md:p-8">
+                <label class="block text-gray-700 font-bold mb-4">Tulis satu kalimat positif untuk hari ini!</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-4 text-yellow-500"><i class="fas fa-star"></i></span>
+                    <input type="text" id="input-positif" placeholder="Aku pasti bisa! Semangat!" class="w-full p-4 pl-12 input-custom">
+                </div>
+            </div>
+
+            <button onclick="kirimRefleksi()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-5 rounded-2xl text-xl shadow-lg transform transition active:scale-95">
+                Kirim Refleksi Saya ✨
+            </button>
+        </div>
+
+        <!-- HALAMAN 3: DASHBOARD GURU -->
+        <div id="page-guru" class="page space-y-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-3xl shadow-sm">
+                <div class="flex items-center gap-4">
+                    <button onclick="showPage('page-welcome')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-full transition">
+                        <i class="fas fa-home text-gray-600"></i>
+                    </button>
+                    <div>
+                        <h1 class="header-font text-2xl text-pink-600">Laporan Dashboard Guru</h1>
+                        <p class="text-sm text-gray-400 font-semibold uppercase tracking-widest">Kelas 5 - Ibu Naswa</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="exportData()" class="bg-green-50 text-green-600 border border-green-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                        <i class="fas fa-file-export"></i> Simpan Laporan
+                    </button>
+                    <button onclick="hapusSemuaData()" class="bg-red-50 text-red-600 border border-red-100 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                        <i class="fas fa-trash-alt"></i> Bersihkan
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kartu Statistik Mood -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="bg-white p-5 rounded-3xl shadow-sm text-center border-b-8 border-green-400">
+                    <div class="text-3xl mb-1">😊</div>
+                    <p class="text-2xl font-bold" id="stat-senang">0</p>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Senang</p>
+                </div>
+                <div class="bg-white p-5 rounded-3xl shadow-sm text-center border-b-8 border-yellow-400">
+                    <div class="text-3xl mb-1">😐</div>
+                    <p class="text-2xl font-bold" id="stat-biasa">0</p>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Biasa</p>
+                </div>
+                <div class="bg-white p-5 rounded-3xl shadow-sm text-center border-b-8 border-orange-400">
+                    <div class="text-3xl mb-1">😢</div>
+                    <p class="text-2xl font-bold" id="stat-sedih">0</p>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Sedih</p>
+                </div>
+                <div class="bg-white p-5 rounded-3xl shadow-sm text-center border-b-8 border-blue-400">
+                    <div class="text-3xl mb-1">😰</div>
+                    <p class="text-2xl font-bold" id="stat-bingung">0</p>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Bingung</p>
+                </div>
+                <div class="bg-white p-5 rounded-3xl shadow-sm text-center border-b-8 border-gray-400">
+                    <div class="text-3xl mb-1">😫</div>
+                    <p class="text-2xl font-bold" id="stat-capek">0</p>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Capek</p>
+                </div>
+            </div>
+
+            <!-- Tabel Hasil -->
+            <div class="bg-white rounded-[2rem] shadow-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-pink-50 text-pink-700">
+                            <tr>
+                                <th class="p-6 font-bold uppercase text-xs">Siswa</th>
+                                <th class="p-6 font-bold uppercase text-xs text-center">Mood</th>
+                                <th class="p-6 font-bold uppercase text-xs">Isi Refleksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-hasil" class="divide-y divide-pink-50">
+                            <!-- Data akan muncul di sini secara dinamis -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-state" class="p-20 text-center hidden">
+                    <i class="fas fa-inbox text-5xl text-gray-200 mb-4"></i>
+                    <p class="text-gray-400 font-medium">Belum ada siswa yang mengirim refleksi hari ini.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL SUKSES -->
+        <div id="modal-sukses" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div class="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
+                <div class="text-7xl mb-6">💖</div>
+                <h2 class="header-font text-2xl text-pink-600 mb-2">Terima Kasih!</h2>
+                <p class="text-gray-500 mb-8 font-medium">Refleksimu sudah Ibu Naswa terima. Terus semangat belajar ya!</p>
+                <button onclick="location.reload()" class="w-full bg-pink-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-pink-600 transition active:scale-95">Selesai</button>
+            </div>
+        </div>
+
     </div>
-  );
 
-  const renderForm = () => (
-    <div className="max-w-2xl mx-auto p-4 md:p-8 bg-white min-h-screen shadow-inner relative overflow-hidden">
-      {/* Dekorasi Karakter di Pojok */}
-      <img src={ASSETS.pencilPink} className="absolute -right-12 -top-12 w-40 opacity-20 pointer-events-none rotate-12" alt="deco" />
-      <img src={ASSETS.pencilBlue} className="absolute -left-12 bottom-20 w-40 opacity-20 pointer-events-none -rotate-12" alt="deco" />
+    <!-- Tombol Rahasia Guru (Ikon Kecil di Pojok) -->
+    <div class="admin-trigger" onclick="loginGuru()"></div>
 
-      <header className="mb-8 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10">
-        <button onClick={() => setView('home')} className="text-pink-500 font-bold flex items-center gap-1 hover:underline">
-          ← Kembali
-        </button>
-        <div className="flex items-center gap-2">
-          <ClipboardList className="text-pink-500" />
-          <h2 className="text-xl font-bold text-pink-600">Refleksi Hari Ini</h2>
-        </div>
-        <div className="w-8"></div>
-      </header>
+    <script>
+        let selectedMood = "";
+        const PASSWORD_GURU = "guru5"; 
+        let dataRefleksi = JSON.parse(localStorage.getItem('refleksi_sd_naswa_v2')) || [];
 
-      <form onSubmit={handleSubmit} className="space-y-10 relative z-index-1">
-        {/* Identitas */}
-        <section className="bg-pink-50 p-6 rounded-3xl border-2 border-pink-100">
-          <div className="flex items-center gap-4 mb-4">
-            <img src={ASSETS.pencilPink} className="w-16 h-16 rounded-full border-2 border-white shadow-sm object-cover" alt="Pink Character" />
-            <label className="block text-pink-700 font-black text-lg">
-              Siapa namamu?
-            </label>
-          </div>
-          <input 
-            required
-            type="text"
-            className="w-full p-4 border-2 border-white rounded-2xl focus:border-pink-400 outline-none transition-all shadow-sm"
-            placeholder="Tulis nama lengkapmu ya..."
-            value={formData.nama}
-            onChange={e => setFormData({...formData, nama: e.target.value})}
-          />
-        </section>
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(pageId).classList.add('active-page');
+            window.scrollTo(0,0);
+        }
 
-        {/* Mood Meter */}
-        <section>
-          <label className="block text-gray-700 font-bold mb-6 text-center text-lg italic">Bagaimana perasaanmu hari ini?</label>
-          <div className="grid grid-cols-5 gap-3">
-            {MOODS.map(m => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setFormData({...formData, mood: m.id})}
-                className={`flex flex-col items-center p-3 rounded-3xl border-2 transition-all ${
-                  formData.mood === m.id ? `${m.color} scale-110 shadow-xl border-pink-400` : 'border-gray-50 grayscale hover:grayscale-0 bg-gray-50'
-                }`}
-              >
-                <span className="text-4xl mb-2">{m.emoji}</span>
-                <span className="text-[10px] font-bold uppercase tracking-tighter">{m.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        function selectEmoji(mood, element) {
+            selectedMood = mood;
+            document.querySelectorAll('.emoji-card').forEach(card => card.classList.remove('selected'));
+            element.classList.add('selected');
+        }
 
-        {/* Pertanyaan Refleksi */}
-        <div className="space-y-8">
-          <section className="relative">
-            <div className="flex items-center gap-2 mb-2">
-               <div className="w-8 h-8 bg-teal-500 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-               <label className="text-gray-800 font-bold text-lg">Apa yang aku pahami hari ini?</label>
-            </div>
-            <textarea 
-              className="w-full p-5 border-2 border-teal-100 rounded-3xl focus:border-teal-400 outline-none h-32 bg-teal-50/30 transition-colors"
-              placeholder="Tulis materi yang sudah kamu mengerti dengan jelas..."
-              value={formData.paham}
-              onChange={e => setFormData({...formData, paham: e.target.value})}
-            />
-          </section>
+        function loginGuru() {
+            const pass = prompt("Masukkan kata sandi Mode Guru:");
+            if (pass === PASSWORD_GURU) {
+                updateDashboard();
+                showPage('page-guru');
+            } else if (pass !== null) {
+                alert("Maaf, kata sandi salah. Khusus Ibu Naswa ya!");
+            }
+        }
 
-          <section className="relative">
-            <div className="flex items-center gap-2 mb-2">
-               <div className="w-8 h-8 bg-yellow-500 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-               <label className="text-gray-800 font-bold text-lg">Apa yang belum aku pahami?</label>
-            </div>
-            <textarea 
-              className="w-full p-5 border-2 border-yellow-100 rounded-3xl focus:border-yellow-400 outline-none h-32 bg-yellow-50/30 transition-colors"
-              placeholder="Ceritakan bagian mana yang masih sulit ya..."
-              value={formData.tidakPaham}
-              onChange={e => setFormData({...formData, tidakPaham: e.target.value})}
-            />
-          </section>
+        function kirimRefleksi() {
+            const nama = document.getElementById('input-nama').value.trim();
+            const paham = document.getElementById('input-paham').value.trim();
+            const belumPaham = document.getElementById('input-belum-paham').value.trim();
+            const saran = document.getElementById('input-saran').value.trim();
+            const positif = document.getElementById('input-positif').value.trim();
 
-          <section className="relative">
-            <div className="flex items-center gap-2 mb-2">
-               <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
-               <label className="text-gray-800 font-bold text-lg">Saran untuk Ibu Naswa:</label>
-            </div>
-            <textarea 
-              className="w-full p-5 border-2 border-blue-100 rounded-3xl focus:border-blue-400 outline-none h-32 bg-blue-50/30 transition-colors"
-              placeholder="Ibu guru harus bagaimana supaya kamu lebih semangat?..."
-              value={formData.saran}
-              onChange={e => setFormData({...formData, saran: e.target.value})}
-            />
-          </section>
+            if (!nama) return alert("Ups! Namamu belum diisi.");
+            if (!selectedMood) return alert("Pilih satu emoji perasaanmu dulu ya.");
 
-          <section className="bg-gradient-to-r from-pink-500 to-rose-400 p-6 rounded-3xl shadow-lg transform rotate-1">
-            <label className="block text-white font-bold mb-3 flex items-center gap-2">
-              <Star className="fill-yellow-300 text-yellow-300 animate-pulse" size={20} /> Kalimat positif hari ini:
-            </label>
-            <input 
-              type="text"
-              className="w-full p-4 border-none rounded-2xl focus:ring-4 focus:ring-white/50 outline-none text-pink-600 font-bold shadow-inner"
-              placeholder="Tulis penyemangat untuk dirimu sendiri..."
-              value={formData.pesanPositif}
-              onChange={e => setFormData({...formData, pesanPositif: e.target.value})}
-            />
-          </section>
-        </div>
+            const payload = {
+                id: Date.now(),
+                waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ', ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+                nama,
+                mood: selectedMood,
+                paham,
+                belumPaham,
+                saran,
+                positif
+            };
 
-        <div className="flex items-center gap-4 py-6">
-          <img src={ASSETS.pencilBlue} className="w-20 h-20 object-contain animate-bounce" alt="Blue character helper" />
-          <button 
-            disabled={loading || !formData.mood || !formData.nama}
-            className="flex-1 py-5 bg-pink-500 hover:bg-pink-600 text-white rounded-3xl font-black text-2xl shadow-xl disabled:bg-gray-300 transition-all active:scale-95 border-b-8 border-pink-700"
-          >
-            {loading ? 'MENYIMPAN...' : 'KIRIM HASIL ✨'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+            dataRefleksi.push(payload);
+            localStorage.setItem('refleksi_sd_naswa_v2', JSON.stringify(dataRefleksi));
+            document.getElementById('modal-sukses').classList.remove('hidden');
+        }
 
-  const renderAdmin = () => (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
-            <BarChart2 className="text-pink-500" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">Dashboard Ibu Naswa</h1>
-            <p className="text-slate-500 text-xs">{submissions.length} anak telah mengisi refleksi</p>
-          </div>
-        </div>
-        <button onClick={() => setView('home')} className="px-4 py-2 border-2 border-pink-200 rounded-xl text-pink-500 font-bold hover:bg-pink-50 transition-colors">
-          Beranda
-        </button>
-      </header>
+        function updateDashboard() {
+            const tabel = document.getElementById('tabel-hasil');
+            const emptyState = document.getElementById('empty-state');
+            tabel.innerHTML = "";
+            
+            if (dataRefleksi.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {submissions.map((item) => {
-          const mood = MOODS.find(m => m.id === item.mood);
-          return (
-            <div key={item.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-pink-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-              
-              <div className="flex justify-between items-start mb-6 relative">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl flex items-center justify-center font-black text-white text-xl shadow-lg transform -rotate-3">
-                    {item.nama?.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-black text-slate-800">{item.nama}</h3>
-                    <p className="text-[10px] text-slate-400 font-bold">TERKIRIM</p>
-                  </div>
-                </div>
-                <div className="text-3xl bg-white shadow-sm p-2 rounded-2xl border border-slate-50" title={mood?.label}>
-                  {mood?.emoji}
-                </div>
-              </div>
+            let stats = { senang:0, biasa:0, sedih:0, bingung:0, capek:0 };
+            const emojis = { senang:'😊', biasa:'😐', sedih:'😢', bingung:'😰', capek:'😫' };
 
-              <div className="space-y-4 text-sm relative">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-teal-600 uppercase tracking-tighter flex items-center gap-1">
-                    <div className="w-1 h-1 bg-teal-600 rounded-full" /> Yang Dipahami:
-                  </p>
-                  <p className="text-slate-700 bg-teal-50/50 p-3 rounded-2xl italic font-medium leading-relaxed">
-                    {item.paham || '-'}
-                  </p>
-                </div>
+            // Urutkan data terbaru di paling atas
+            [...dataRefleksi].reverse().forEach(item => {
+                if(stats.hasOwnProperty(item.mood)) stats[item.mood]++;
                 
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-yellow-600 uppercase tracking-tighter flex items-center gap-1">
-                    <div className="w-1 h-1 bg-yellow-600 rounded-full" /> Yang Sulit:
-                  </p>
-                  <p className="text-slate-700 bg-yellow-50/50 p-3 rounded-2xl italic font-medium leading-relaxed">
-                    {item.tidakPaham || '-'}
-                  </p>
-                </div>
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-pink-50/40 transition group";
+                tr.innerHTML = `
+                    <td class="p-6 align-top">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-800 text-lg">${item.nama}</span>
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">${item.waktu}</span>
+                        </div>
+                    </td>
+                    <td class="p-6 text-center align-top">
+                        <span class="text-4xl filter drop-shadow-sm">${emojis[item.mood] || '❓'}</span>
+                        <p class="text-[9px] text-gray-300 font-bold uppercase mt-1">${item.mood}</p>
+                    </td>
+                    <td class="p-6 text-sm text-gray-600 space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 group-hover:bg-white transition">
+                            <p class="mb-2"><strong class="text-pink-400">Paham:</strong> ${item.paham || '-'}</p>
+                            <p class="mb-2"><strong class="text-orange-400">Belum:</strong> ${item.belumPaham || '-'}</p>
+                            <p class="mb-2"><strong class="text-blue-400">Saran:</strong> ${item.saran || '-'}</p>
+                            <div class="mt-4 pt-3 border-t border-dashed border-gray-200">
+                                <span class="text-pink-600 font-bold italic">✨ "${item.positif || 'Hari ini luar biasa!'}"</span>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tabel.appendChild(tr);
+            });
 
-                <div className="pt-4 border-t border-dashed flex items-center gap-2 text-pink-500 font-black italic">
-                  <Heart size={16} className="fill-pink-500" /> "{item.pesanPositif}"
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {submissions.length === 0 && (
-          <div className="col-span-full py-24 text-center">
-             <img src={ASSETS.pencilBlue} className="w-32 mx-auto opacity-20 grayscale mb-4" alt="Empty" />
-             <p className="text-slate-400 font-bold">Belum ada respon masuk...</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+            // Update Angka Statistik
+            for (let key in stats) {
+                const el = document.getElementById('stat-' + key);
+                if(el) {
+                    el.innerText = stats[key];
+                    // Tambahkan animasi pulse jika ada data baru
+                    if(stats[key] > 0) el.classList.add('text-pink-600');
+                }
+            }
+        }
 
-  const renderThanks = () => (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center p-8 bg-white">
-      <div className="relative mb-8">
-        <div className="absolute inset-0 bg-green-200 rounded-full blur-3xl animate-pulse opacity-50" />
-        <img src={ASSETS.pencilPink} className="w-48 h-48 object-contain relative animate-bounce" alt="Happy Pencil" />
-      </div>
-      <h1 className="text-3xl font-black text-green-700 mb-3">HEBAT, BERHASIL! ✨</h1>
-      <p className="text-slate-600 mb-10 max-w-sm font-medium">Terima kasih sudah bercerita hari ini. Ibu Naswa sudah menerima pesanmu!</p>
-      <button 
-        onClick={() => {
-          setFormData({ nama: '', mood: '', paham: '', tidakPaham: '', saran: '', pesanPositif: '' });
-          setView('home');
-        }}
-        className="px-12 py-4 bg-[#4CAF50] text-white rounded-3xl font-black text-xl shadow-xl border-b-8 border-green-700 active:scale-95 transition-transform"
-      >
-        KEMBALI KE AWAL
-      </button>
-    </div>
-  );
+        function hapusSemuaData() {
+            if (confirm("Ibu Naswa yakin ingin menghapus semua hasil refleksi hari ini? Data yang dihapus tidak bisa dikembalikan.")) {
+                dataRefleksi = [];
+                localStorage.setItem('refleksi_sd_naswa_v2', JSON.stringify(dataRefleksi));
+                updateDashboard();
+            }
+        }
 
-  return (
-    <div className="min-h-screen bg-white font-sans selection:bg-pink-200">
-      {view === 'home' && renderHome()}
-      {view === 'form' && renderForm()}
-      {view === 'admin' && renderAdmin()}
-      {view === 'thanks' && renderThanks()}
-    </div>
-  );
-}
+        function exportData() {
+            if (dataRefleksi.length === 0) return alert("Tidak ada data untuk disimpan.");
+            
+            let content = "LAPORAN REFLEKSI SISWA - IBU NASWA\n";
+            content += "-----------------------------------\n\n";
+            
+            dataRefleksi.forEach((item, index) => {
+                content += `${index + 1}. NAMA: ${item.nama}\n`;
+                content += `   WAKTU: ${item.waktu}\n`;
+                content += `   MOOD: ${item.mood}\n`;
+                content += `   PAHAM: ${item.paham}\n`;
+                content += `   BELUM: ${item.belumPaham}\n`;
+                content += `   SARAN: ${item.saran}\n`;
+                content += `   POSITIF: ${item.positif}\n`;
+                content += `-----------------------------------\n`;
+            });
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Refleksi_Kelas5_${new Date().toLocaleDateString('id-ID')}.txt`;
+            a.click();
+        }
+    </script>
+</body>
+</html>
